@@ -1,72 +1,185 @@
-import { View, Text, TextInput, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
-import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TextInput, ActivityIndicator, FlatList, TouchableOpacity, Alert } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import { useFocusEffect } from '@react-navigation/native'
+
 
 export default function Busca() {
-    const [usuarios, setUsuarios ] = useState( [] );
-    const [error, setError ] = useState(false);
-    const [busca, setBusca] = useState(false);
-    const [filtro, setFiltro ] = useState(false);
+  const[clients, setClients] = useState([]);
+  const[error, setError] = useState(false);
+  const[edicao, setEdicao] = useState(false);
+  const[clientId, setClientId] = useState(0);
+  const[clientName, setName] = useState();
+  const[clientEmail, setEmail] = useState();
+  const[clientnameSenha, setSenha] = useState();
+  const[deleteResposta, setResposta] = useState(false);
 
-    async function getUsuarios()
-    {
-        await fetch('https://fakestoreapi.com/users', {
+
+  async function getClients(){
+    await fetch('http://10.139.75.43:5251/api/Clients/GetAllClient',{
             method: 'GET',
-            headers: {
-              'content-type': 'application/json'
+            headers:{
+                'content-type' : 'application/json'
             }
-          })
-            .then( res => ( res.ok == true ) ? res.json() : false )
-            .then( json => setUsuarios( json ) )
-            .catch( err => setError( true ) )
-    }
+        })
+        .then( res =>  res.json ())
+        .then(json => setClients(json) )
+        .catch(err => setError(true))
+  }
 
-    useEffect( () => {
-        getUsuarios();
-    }, [] );
+  async function getClient(id){
+    await fetch('http://10.139.75.43:5251/api/Clients/GetClientId/'+ id,{
+            method: 'GET',
+            headers:{
+                'content-type' : 'application/json; charset=UTF-8',
+            }
+        })
+        .then( (response) =>  response.json ())
+        .then(json => {
+            setClientId(json.clientId);
+            setName (json.clientName);
+            setEmail(json.clientEmail);
+           
+        } )
+        
+  }
 
-    useEffect( () => {
-        setFiltro( usuarios.filter( (item) => item.name.firstname == busca )[0] );
-    }, [busca] );
+  async function clientEdit(id){    
+    await fetch('http://10.139.75.43:5251/api/Clients/UpdateClient/'+ clientId,{
+            method: 'PUT',
+            headers:{
+                'content-type' : 'application/json; charset=UTF-8',
+            },
+            body: JSON.stringify({
+                clientId: clientId,
+                clientName: clientName,
+                clientEmail : clientEmail,                
+            })
+        })
+        .then( (response) =>  response.json ())
+        .then(err => console.log(err))
+        getClients();
+        setEdicao(false);
+        
+  }
 
-    return (
-        <View style={css.container}>
-            <View style={css.searchBox}>
-                <TextInput
-                    style={css.search}
-                    placeholder="Buscar usuarios"
-                    placeholderTextColor="white"
-                    TextInput={busca}
-                    onChangeText={(digitado) => setBusca( digitado ) }
-                />
-            </View>
-            { filtro && <Text style={css.text}>{filtro.name.firstname} {filtro.name.lastname}</Text> }
-            { ( !filtro && busca ) && <ActivityIndicator size="large" color="white" /> }
-        </View>
+  useEffect(() => {
+    getClients();
+  }, [])
+
+  useFocusEffect(
+    React.useCallback(() => {
+      getClients()
+    },[])
+  )
+  function ShowAlert(id, clientName){
+    Alert.alert(
+      '',
+      'Deseja realmente Excluir esse cliente ?',
+      [
+        {text : 'Sim', onPress: () => deleteClient(id, clientName)},
+        {text : 'Não', onPress: () => ('')},
+      ],
+      { cancelanle: false}
     )
+  }
+  
+  async function deleteClient(id, clientName) {
+    await fetch('http://10.139.75.43:5251/api/Clients/DeleteClient/'+ id,{
+      method: 'DELETE',
+      headers:{
+          'content-type' : 'application/json; charset=UTF-8',
+      },
+    })
+    .then( res =>  res.json ())
+    .then(json => setResposta (json))
+    .catch(err => setError (true))
+
+    if(deleteResposta == true)
+      {
+        Alert.alert(
+          '',
+          'Cliente ' + clientName + ' não excluido com sucesso',
+          [
+            {text : '', onPress: () => ('')},
+            {text : 'Ok', onPress: () => ('')},
+          ],
+          { cancelanle: false}
+        );
+        getClients();
+      }
+
+      else(deleteResposta == true)
+        {
+          Alert.alert(
+            '',
+            'Cliente ' + clientName + ' foi excluido',
+            [
+              {text : '', onPress: () => ('')},
+              {text : 'Ok', onPress: () => ('')},
+            ],
+            { cancelanle: false}
+          );
+          getClients();
+        }
+  }
+
+  
+
+
+
+
+  return (
+    <View style={css.container}>
+      {edicao == false ?
+      <FlatList
+      style={css.flat}
+      data={clients}
+      keyExtractor={(item) => item.clientId}
+      renderItem={({item}) => (
+        <Text style={css.text} kei={item.clientId}>
+          {item.clientName}
+          <TouchableOpacity style={{backgroundColor: 'green', width: 30, height: 15}} onPress={() => {setEdicao(true); getClient(item.clientId)}}>
+              <Text style={css.btnLoginText}>Editar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{backgroundColor: '#ffff10', width: 30, height: 15}} onPress={() => ShowAlert(item.clientId, item.clientName)}>
+              <Text style={css.btnLoginText}>Excluir</Text>
+          </TouchableOpacity>
+        </Text>
+      )}
+      />
+      :
+      <View>
+        <TextInput
+        inputMode='text'
+        style={css.input}
+        value={clientName}
+        onChangeText={(digitado) => setName(digitado)}
+        placeholderTextColor="white"
+        />
+        <TextInput
+        inputMode="email"
+        style={css.input}
+        value={clientEmail}
+        onChangeText={(digitado) => setEmail(digitado)}
+        placeholderTextColor="white"
+        />
+        <TouchableOpacity style={{}} onPress={() => clientEdit()}>
+          <Text style={{}}>SALVAR</Text>
+        </TouchableOpacity>
+      </View>
+    }
+    </View>
+  
+  )
 }
 const css = StyleSheet.create({
-    container: {
-        flexGrow: 1,
-        width: "100%",
-        alignItems: "center",
-        backgroundColor: "#191919",
-    },
-    text: {
-        color: "white"
-    },
-    searchBox: {
-        width: "100%",
-        height: 100,
-        justifyContent: "flex-end",
-        alignItems: "center",
-    },
-    search: {
-        width: "96%",
-        height: 60,
-        borderWidth: 1,
-        borderColor: "white",
-        borderRadius: 8,
-        padding: 10,
-        color: "white"
-    }
+  container: {
+    backgroundColor: "#fff",
+    flexGrow: 1,
+    color: "white",
+    justifyContent: "center",
+    alignItems: "center"
+    
+  },
+
 })
